@@ -31,7 +31,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	fmt.Println("uploading thumbnail for video", videoID, "by user", userID)
 
-	// TODO: implement the upload here
 	const maxMemory = 10 << 20
 	err = r.ParseMultipartForm(maxMemory)
 	if err != nil {
@@ -48,15 +47,35 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	defer file.Close()
 
 	ct := header.Header.Get("Content-Type")
-	fmt.Println(ct)
 
 	data, err := io.ReadAll(file)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to read thumbnail file content", err)
 		return
 	}
-	// TODO: resume CH1 L5 step 5
-	_ = data
 
-	respondWithJSON(w, http.StatusOK, struct{}{})
+	vid, err := cfg.db.GetVideo(videoID)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "GetVideo() error", err)
+		return
+	}
+	if vid.UserID != userID {
+		respondWithJSON(w, http.StatusUnauthorized, struct{}{})
+		return
+	}
+
+	videoThumbnails[vid.ID] = thumbnail{
+		data:      data,
+		mediaType: ct,
+	}
+
+	url := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, vid.ID.String())
+	vid.ThumbnailURL = &url
+	err = cfg.db.UpdateVideo(vid)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, vid)
 }
