@@ -80,13 +80,13 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	url := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, vid.ID.String())
-	vid.ThumbnailURL = &url
-	err = cfg.db.UpdateVideo(vid)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
-		return
-	}
+	// url := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, vid.ID.String())
+	// vid.ThumbnailURL = &url
+	// err = cfg.db.UpdateVideo(vid)
+	// if err != nil {
+	// 	respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
+	// 	return
+	// }
 
 	respondWithJSON(w, http.StatusOK, vid)
 }
