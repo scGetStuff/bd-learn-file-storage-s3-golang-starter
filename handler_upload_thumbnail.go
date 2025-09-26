@@ -71,9 +71,10 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	// CH1 L7
+	// TODO: save to file
+	fmt.Println(ct)
 
 	// CH1 L6
-	// also comment out GET
 	thumb64 := base64.StdEncoding.EncodeToString(data)
 	url64 := fmt.Sprintf("data:<media-type>;%s,<data>", thumb64)
 	vid.ThumbnailURL = &url64
@@ -82,15 +83,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
 		return
 	}
-
-	// CH1 L5
-	// url := fmt.Sprintf("http://localhost:%s/api/thumbnails/%s", cfg.port, vid.ID.String())
-	// vid.ThumbnailURL = &url
-	// err = cfg.db.UpdateVideo(vid)
-	// if err != nil {
-	// 	respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
-	// 	return
-	// }
 
 	respondWithJSON(w, http.StatusOK, vid)
 }
