@@ -1,10 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -71,13 +73,26 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	// CH1 L7
-	// TODO: save to file
-	fmt.Println(ct)
-
-	// CH1 L6
-	thumb64 := base64.StdEncoding.EncodeToString(data)
-	url64 := fmt.Sprintf("data:<media-type>;%s,<data>", thumb64)
-	vid.ThumbnailURL = &url64
+	// TODO: assuming header is well formed
+	// fmt.Println(ct)
+	ext := strings.Split(ct, "/")[1]
+	imgFile := fmt.Sprintf("%s.%s", vid.ID, ext)
+	imgPath := filepath.Join(cfg.assetsRoot, imgFile)
+	// fmt.Println(imgPath)
+	f, err := os.Create(imgPath)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "os.Create() error", err)
+		return
+	}
+	defer f.Close()
+	// TODO: supposed to use io.Copy(), but that does not make sense, also didn't work
+	// we already read the multipart form into data[], so why read it again
+	// using Copy() would assume the client and server are on the same machine
+	f.Write(data)
+	// TODO: not sure how to do this without hardcode, ASSETS_ROOT is no good
+	// seems like cfg should have a root url
+	url := fmt.Sprintf("http://localhost:%s/assets/%s", cfg.port, imgFile)
+	vid.ThumbnailURL = &url
 	err = cfg.db.UpdateVideo(vid)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "UpdateVideo() error", err)
