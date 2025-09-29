@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,11 +74,13 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		mediaType: ct,
 	}
 
-	// CH1 L7
 	// TODO: assuming header is well formed
 	// fmt.Println(ct)
 	ext := strings.Split(ct, "/")[1]
-	imgFile := fmt.Sprintf("%s.%s", vid.ID, ext)
+	// imgFile := fmt.Sprintf("%s.%s", vid.ID, ext)
+	key := make([]byte, 32)
+	rand.Read(key)
+	imgFile := fmt.Sprintf("%s.%s", base64.RawURLEncoding.EncodeToString(key), ext)
 	imgPath := filepath.Join(cfg.assetsRoot, imgFile)
 	// fmt.Println(imgPath)
 	f, err := os.Create(imgPath)
