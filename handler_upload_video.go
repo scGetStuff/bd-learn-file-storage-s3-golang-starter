@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"mime"
@@ -92,13 +93,27 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	fastFilePath, err := processVideoForFastStart(tmp.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "processVideoForFastStart() failed", err)
+		return
+	}
+	defer os.Remove(fastFilePath)
+
+	fastFile, err := os.Open(fastFilePath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Could not open processed file", err)
+		return
+	}
+	defer fastFile.Close()
+
 	assetPath := getAssetPath(mediaType)
 	assetPath = filepath.Join(aspectPrefix, assetPath)
 
 	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:      &cfg.s3Bucket,
 		Key:         &assetPath,
-		Body:        tmp,
+		Body:        fastFile,
 		ContentType: &mediaType,
 	})
 	if err != nil {
@@ -127,7 +142,13 @@ func getVideoAspectRatio(filePath string) (string, error) {
 		} `json:"streams"`
 	}
 
-	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
+	cmd := exec.Command("ffprobe",
+		"-v",
+		"error",
+		"-print_format",
+		"json",
+		"-show_streams",
+		filePath)
 	// fmt.Println(cmd.String())
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
@@ -160,4 +181,28 @@ func getVideoAspectRatio(filePath string) (string, error) {
 	}
 
 	return out, nil
+}
+
+func processVideoForFastStart(filePath string) (string, error) {
+	outFile := fmt.Sprintf("%s.processing", filePath)
+	// fmt.Println(outFile)
+
+	cmd := exec.Command("ffmpeg",
+		"-i",
+		filePath,
+		"-c",
+		"copy",
+		"-movflags",
+		"faststart",
+		"-f",
+		"mp4",
+		outFile)
+	// fmt.Println(cmd.String())
+
+	err := cmd.Run()
+	if err != nil {
+		return "Run() failed", err
+	}
+
+	return outFile, nil
 }
