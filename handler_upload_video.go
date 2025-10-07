@@ -12,12 +12,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
-	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -124,19 +121,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// url := cfg.getBucketURL(assetPath)
-	url := fmt.Sprintf("%s,%s", cfg.s3Bucket, assetPath)
+	url := cfg.getBucketURL(assetPath)
 	fmt.Println(url)
 	video.VideoURL = &url
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't update video", err)
-		return
-	}
-
-	video, err = cfg.dbVideoToSignedVideo(video)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "dbVideoToSignedVideo() failed", err)
 		return
 	}
 
@@ -215,54 +205,4 @@ func processVideoForFastStart(filePath string) (string, error) {
 	}
 
 	return outFile, nil
-}
-
-func generatePresignedURL(
-	s3Client *s3.Client,
-	bucket, key string,
-	expireTime time.Duration) (string, error) {
-
-	client := s3.NewPresignClient(s3Client)
-	req, err := client.PresignGetObject(
-		context.Background(),
-		&s3.GetObjectInput{
-			Bucket: &bucket,
-			Key:    &key,
-		},
-		s3.WithPresignExpires(expireTime))
-	if err != nil {
-		return "PresignGetObject() failed", err
-	}
-
-	return req.URL, nil
-}
-
-func (cfg *apiConfig) dbVideoToSignedVideo(video database.Video) (database.Video, error) {
-
-	// fmt.Printf("DB VideoURL: %s\n", *video.VideoURL)
-	parts := strings.Split(*video.VideoURL, ",")
-	if len(parts) < 2 {
-		// return database.Video{}, fmt.Errorf("dbVideoToSignedVideo() bad URL")
-
-		// TODO: did this during transition to ignore old URL
-		return video, nil
-	}
-	bucket, key := parts[0], parts[1]
-	// fmt.Printf("bucket: %s\n", bucket)
-	// fmt.Printf("key: %s\n", key)
-
-	// if true {
-	// 	return video, nil
-	// }
-
-	// TODO: the lesson did not tell us what to use for expireTime
-	url, err := generatePresignedURL(cfg.s3Client, bucket, key, time.Hour)
-	if err != nil {
-		return database.Video{}, err
-	}
-	// fmt.Println(url)
-
-	video.VideoURL = &url
-
-	return video, nil
 }
